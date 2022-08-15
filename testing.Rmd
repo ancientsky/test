@@ -1,0 +1,8 @@
+---
+title: "R for Excel Practice"
+output: html_notebook
+---
+practing 
+```{r}
+plot(cars)
+```
