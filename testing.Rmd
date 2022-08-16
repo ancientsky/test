@@ -2,7 +2,115 @@
 title: "R for Excel Practice"
 output: html_notebook
 ---
-practing 
+## Import basic library for data cleaning
+here: library for pointing files at current project working directory
 ```{r}
-plot(cars)
+library(tidyverse)
+library(readxl)
+library(here)
 ```
+```{r}
+ca_np <- read_csv(here("data", "ca_np.csv"))
+```
+```{r}
+View(ca_np)
+```
+```{r}
+names(ca_np)
+```
+```{r}
+head(ca_np)
+```
+```{r}
+summary(ca_np)
+```
+```{r}
+library(readxl)
+```
+```{r}
+##ci_np : national parks for Channel Islands
+ci_np <- read_excel(here("data", "ci_np.xlsx"))
+```
+```{r}
+View(ci_np)
+```
+
+ggplot(data = df_name, aes(x = x_var_name, y = y_var_name)) +
+  geom_type()
+Breaking that down:
+
+First, tell R you’re using ggplot()
+Then, tell it the object name where variables exist (data = df_name)
+Next, tell it the aesthetics aes() to specify which variables you want to plot
+Then add a layer for the type of geom (graph type) with geom_*() - for example, geom_point() is a scatterplot, geom_line() is a line graph, geom_col() is a column graph, etc.
+```{r}
+ggplot(data = ci_np, aes(x = year, y = visitors)) +
+  geom_line()
+
+```
+```{r}
+## store base as an object
+gg_base <- ggplot(data = ci_np, aes(x = year, y = visitors))
+
+```
+```{r}
+gg_base +
+  geom_point()
+```
+```{r}
+gg_base +
+  geom_line()
+```
+```{r}
+gg_base +
+  geom_col()
+```
+
+```{r}
+gg_base +
+  geom_area()
+```
+Some common arguments we’ll use first are:
+
+color = or colour =: update point or line colors
+fill =: update fill color for objects with areas
+linetype =: update the line type (dashed, long dash, etc.)
+pch =: update the point style
+size =: update the element size (e.g. of points or line thickness)
+alpha =: update element opacity (1 = opaque, 0 = transparent)
+
+```{r}
+gg_base +
+  geom_line(
+    color = "purple",
+    linetype = "dashed"
+  )
+
+```
+
+```{r}
+gg_base + 
+  geom_point(color = "purple",
+             pch = 17,
+             size = 4,
+             alpha = 0.5)
+```
+```{r}
+gg_base +
+  geom_area(aes(color='orange'))
+```
+
+```{r}
+gg_base + 
+  geom_point(
+    aes(size = visitors,
+        color = visitors),
+    alpha = 0.5
+  )
+```
+
+```{r}
+gg_base + 
+  geom_col(aes(fill = visitors))
+```
+
