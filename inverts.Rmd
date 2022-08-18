@@ -1,0 +1,133 @@
+---
+title: "Data reshaping"
+output: html_notebook
+---
+Use tidyr::pivot_wider() and tidyr::pivot_longer() to reshape data frames
+janitor::clean_names() to make column headers more manageable
+tidyr::unite() and tidyr::separate() to merge or separate information from different columns
+Detect or replace a string with stringr functions
+
+https://rstudio-conf-2020.github.io/r-for-excel/tidying.html
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(here)
+library(readxl)
+```
+
+tidyr::pivot_longer() to reshape from wider-to-longer format
+
+```{r}
+inverts <- read_excel(here("data", "inverts.xlsx"))
+```
+
+```{r}
+View(inverts)
+```
+```{r}
+summary(inverts)
+```
+```{r}
+names(inverts)
+```
+
+```{r}
+inverts_long <- pivot_longer(data = inverts, 
+                                    cols = '2016':'2018',
+                                    names_to = "year",
+                                    values_to = "sp_count")
+```
+
+```{r}
+View(inverts_long)
+```
+```{r}
+summary(inverts_long)
+```
+
+```{r}
+# Coerce "year" class to numeric: 
+
+inverts_long <- inverts_long %>% 
+  mutate(year = as.numeric(year))
+```
+
+```{r}
+View(inverts_long)
+```
+```{r}
+inverts_wide <- inverts_long %>% 
+  pivot_wider(names_from = common_name, 
+                     values_from = sp_count)
+```
+
+```{r}
+View(inverts_wide)
+```
+```{r}
+inverts_wide
+```
+
+The janitor package by Sam Firke is a great collection of functions for some quick data cleaning, like:
+
+janitor::clean_names(): update column headers to a case of your choosing
+janitor::get_dupes(): see all rows that are duplicates within variables you choose
+janitor::remove_empty(): remove empty rows and/or columns
+janitor::adorn_*(): jazz up tables
+
+```{r}
+inverts_wide <- inverts_wide %>% 
+  clean_names()
+```
+
+```{r}
+summary(inverts_wide)
+```
+tidyr::unite() and tidyr::separate() to combine or separate information in column(s)
+
+```{r}
+inverts_unite <- inverts_long %>% 
+  unite(col = "site_year", # What to name the new united column
+               c(site, year), # The columns we'll unite (site, year)
+               sep = "_") # How to separate the things we're uniting
+inverts_unite
+```
+```{r}
+inverts_moyr <- inverts_long %>% 
+  unite(col = "mo_yr", # What to name the new united column
+               c(month, year), # The columns we'll unite (site, year)
+               sep = "/") 
+
+inverts_moyr
+```
+```{r}
+# Uniting more than 2 columns: 
+
+inverts_triple_unite <- inverts_long %>% 
+  tidyr::unite(col = "year_site_name",
+               c(year, site, common_name),
+               sep = "-") # Note: this is a dash
+
+inverts_triple_unite
+```
+```{r}
+inverts_sep <- inverts_unite %>% 
+  tidyr::separate(site_year, into = c("my_site", "my_year"))
+inverts_sep
+```
+
+stringr::str_replace() to replace a pattern
+
+```{r}
+ca_abbr <- inverts %>% 
+  mutate(
+    common_name = 
+      str_replace(common_name, 
+              pattern = "california", 
+              replacement = "CA")
+  )
+
+ca_abbr
+```
+
