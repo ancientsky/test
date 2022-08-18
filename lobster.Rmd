@@ -1,0 +1,167 @@
+---
+title: "lobster"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(readxl)
+library(here)
+library(skimr) # install.packages('skimr')
+library(kableExtra) # install.packages('kableExtra')
+```
+
+```{r}
+lobsters <- read_xlsx(here("data/lobsters.xlsx"), skip=4)
+
+```
+skimr: improved summary, add information for non-numeric data
+
+```{r}
+skimr::skim(lobsters)
+```
+```{r}
+summary(lobsters)
+```
+data %>%
+  group_by() %>% 
+  summarize()
+
+Let’s use group_by() %>% summarize() with our lobsters data, just like we did in Excel. We will first group_by year and then summarize by count, using the function n() (in the dplyr package). n() counts the number of times an observation shows up, and since this is uncounted data, this will count each row.
+  
+```{r}
+lobsters %>%
+  group_by(year) %>%
+  summarize(count_by_year = n())
+```
+```{r}
+lobsters %>%
+  summarize(count =  n())
+```
+```{r}
+lobsters %>%
+  group_by(year)
+```
+```{r}
+lobsters %>%
+  group_by(site, year) %>%
+  summarize(count_by_siteyear =  n())
+```
+```{r}
+lobsters %>%
+  group_by(site, year) %>%
+  summarize(count_by_siteyear =  n(),
+            mean_size_mm = mean(size_mm))
+```
+Removing NA
+```{r}
+lobsters %>%
+  group_by(site, year) %>%
+  summarize(count_by_siteyear =  n(), 
+            mean_size_mm = mean(size_mm, na.rm=TRUE), 
+            sd_size_mm = sd(size_mm, na.rm=TRUE))
+```
+```{r}
+siteyear_summary <- lobsters %>%
+  group_by(site, year) %>%
+  summarize(count_by_siteyear =  n(), 
+            mean_size_mm = mean(size_mm, na.rm = TRUE), 
+            sd_size_mm = sd(size_mm, na.rm = TRUE))
+```
+
+```{r}
+siteyear_summary
+```
+Table formatting with kable()
+
+```{r}
+## make a table with our new variable
+siteyear_summary %>%
+  kable()
+```
+
+There are `r nrow(lobsters)` total lobsters included in this report.
+```{r}
+siteyear_summary <- lobsters %>%
+  group_by(site, year) %>%
+  summarize(count_by_siteyear =  n(), 
+            mean_size_mm = mean(size_mm, na.rm = TRUE), 
+            sd_size_mm = sd(size_mm, na.rm = TRUE), 
+            median_size_mm = median(size_mm, na.rm = TRUE))
+```
+
+```{r}
+siteyear_summary %>% kable()
+```
+```{r}
+## a ggplot option:
+ggplot(data = siteyear_summary, aes(x = year, y = median_size_mm, color = site)) +
+  geom_line() 
+```
+
+```{r}
+## a ggplot option:
+ggplot(data = siteyear_summary, aes(x = year, y = median_size_mm, groups= site)) +
+  geom_line() 
+```
+
+```{r}
+ggsave(here("figures", "lobsters-line.png"))
+
+```
+
+```{r}
+## another option:
+ggplot(siteyear_summary, aes(x = year, y = median_size_mm)) +
+  geom_col() +
+  facet_wrap(~site)
+```
+
+```{r}
+## another option:
+ggplot(siteyear_summary, aes(x = year, y = median_size_mm)) +
+  geom_line() +
+  facet_wrap(~site)
+```
+
+```{r}
+ggsave(here("figures", "lobsters-col.png"))
+
+```
+
+dplyr::count()
+
+```{r}
+lobsters %>%
+  count(site, year)
+```
+```{r}
+## This is the same as:
+lobsters %>%
+  group_by(site, year) %>% 
+  summarize(n = n()) %>%
+  ungroup()
+```
+```{r}
+lobsters %>%
+  group_by(site, year) %>% 
+  summarize(n = n())
+```
+```{r}
+lobsters %>%
+  mutate(size_m = size_mm / 1000)/  ##mutate : make a new variable
+```
+```{r}
+lobsters_detailed <- lobsters %>%
+  mutate(size_m = size_mm / 1000, 
+         millenia = 2000,
+         observer = "Allison Horst")
+```
+
+select()
+We will end with one final function, select. This is how to choose, retain, and move your data by columns:
+
+```{r}
+lobsters_detailed %>%
+  select(date, site, size_m)
+```
+
