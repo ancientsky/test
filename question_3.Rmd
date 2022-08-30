@@ -1,0 +1,106 @@
+---
+title: "Question 3"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+## 請作表列出107至110年各年出生男、女嬰數
+
+
+```{r}
+##load the data
+birth = read_csv("./data/births_107_110_county_edu_age.csv")
+
+```
+```{r}
+summary(birth)
+```
+```{r}
+View(birth)
+```
+```{r}
+names(birth)
+```
+```{r}
+### remove 1st row ( duplicated variable names in Chinese)
+birth <- birth %>%
+  slice(2:929881)
+```
+
+
+```{r}
+## change birth_count from character to numeric; statistic_yyy to factoral
+birth <- birth %>% 
+  mutate(birth_count=as.numeric(birth_count)) %>% 
+  mutate(statistic_yyy = factor(statistic_yyy,levels=c('107','108','109','110')))
+```
+
+```{r}
+
+## check the types of the variables
+summary(birth)
+```
+
+
+```{r}
+birth %>% 
+  group_by(statistic_yyy, birth_sex) %>% 
+  summarize(births = sum(birth_count)) %>% 
+  pivot_wider(names_from= birth_sex,values_from = births) %>%   #### move birth_sex to column
+  kbl() %>%      ### beautify
+  kable_classic_2(full_width = F)
+```
+
+## 請依最多到最少排序非本國籍生母不同教育程度出生嬰兒數
+
+```{r}
+### check mother nationality
+birth %>% 
+  distinct(mother_nation)
+```
+
+"非本國籍"生母不同教育程度出生嬰兒數
+
+```{r}
+birth %>% 
+  filter(!mother_nation=="本國") %>%   ### exclude "本國"
+  group_by(mother_education) %>% 
+  summarise(births=sum(birth_count)) %>% 
+  arrange(desc(births)) %>% 
+  rename("生母教育程度"=mother_education,"出生嬰兒數"=births) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+"本國籍"生母不同教育程度出生嬰兒數
+
+```{r}
+birth %>% 
+  filter(mother_nation=="本國") %>%   ### must include "本國"
+  group_by(mother_education) %>% 
+  summarise(births=sum(birth_count)) %>% 
+  arrange(desc(births)) %>% 
+  rename("生母教育程度"=mother_education,"出生嬰兒數"=births) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+## 請依生母教育程度，畫出107年至110年各年出生嬰兒數
+
+```{r}
+birth_year_edu <- birth %>% 
+  group_by(mother_education,statistic_yyy) %>% 
+  summarize(births=sum(birth_count))
+birth_year_edu
+```
+```{r}
+ggplot(birth_year_edu, aes(x=statistic_yyy,y=births)) +
+  geom_col() +
+  facet_wrap(~mother_education,ncol=3, scales = "free_y") +
+  #coord_cartesian()+
+  #theme(axis.text.x = element_text(angle = 90)) +
+  labs(x="出生年", y="出生嬰兒數")
+
+```
+

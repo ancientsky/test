@@ -1,0 +1,115 @@
+---
+title: "Question 1 Taipei BUS"
+output: html_notebook
+---
+```{r}
+##載入 tidyverse library
+library(tidyverse)
+```
+```{r}
+## 檢查路徑
+getwd()
+```
+```{r}
+## 載入放在data目錄的 taipei_bus_stops_20220823.csv
+
+bus_stops = read_csv("./data/taipei_bus_stops_20220823.csv")
+```
+```{r}
+View(bus_stops)
+```
+```{r}
+## 取得bus_stops資料表的欄位名
+names(bus_stops)
+```
+## 1.請作表列出台北市各區公車站牌數
+
+```{r}
+taipei_stops <- bus_stops %>% 
+  filter(COUNTYNAME=='臺北市') %>% 
+  group_by(TOWNNAME) %>% 
+  summarise(stops=n()) %>% 
+  arrange(desc(stops))
+taipei_stops
+```
+
+## 請算出台北市各區公車站牌密度(站牌數/平方公里)並以直方圖畫出
+
+```{r}
+# install.packages('readODS') 在R裡面讀ods檔,安裝readODS, 記得要將  #去掉
+library(readODS)
+```
+```{r}
+area <- read_ods("./data/台北市各區面積.ods")
+```
+```{r}
+View(area)
+```
+```{r}
+## 選取台北市12區（位於第2至13欄），行政區名及面積（第2至3列）
+area_taipei = area[1:2,2:13]
+## 給dataframe 新的欄名，用各行政區名
+colnames(area_taipei) = area_taipei[1,]
+area_taipei
+```
+```{r}
+## 將data frame轉置，取第二列資料（面積）
+area_taipei <- area_taipei %>%
+  slice(2) %>% 
+  pivot_longer(cols=1:12,names_to = "district",values_to = "area")
+```
+
+```{r}
+combined <- left_join(taipei_stops,area_taipei,by=c("TOWNNAME"="district"))
+combined
+```
+```{r}
+combined = combined %>% 
+  mutate(density=stops/ as.numeric(area)) %>% 
+  arrange(desc(density))
+combined
+```
+```{r}
+ggplot(combined,
+       aes(x = TOWNNAME,y = density)) +
+  geom_col() +
+  coord_flip() +   ### vertical to horizontal
+  labs(x="Distric", y="Bus Stops per Km2")
+
+  
+```
+## https://r-graph-gallery.com/267-reorder-a-variable-in-ggplot2.html
+
+fct_reorder 
+# Reorder following the value of another column:
+data %>%
+  mutate(name = fct_reorder(name, val)) %>%
+
+## reverse order
+  mutate(name = fct_reorder(name, desc(val))) %>%
+
+```{r}
+ggplot(combined,
+       aes(x = fct_reorder(TOWNNAME, density),y = density,fill=density)) +
+  geom_col(width=.5) +
+  coord_flip() +   ### vertical to horizontal
+  labs(x="District", y="Bus Stops per Km2") +
+  ggtitle(label="台北市各區每平方公里公車站牌數", ) +
+  geom_text(aes(label = round(density,0), vjust = 0,hjust =-.2, size=1)) 
+  ### 在bar外加上值
+
+
+```
+```{r}
+ggplot(combined,
+       aes(x =fct_reorder(TOWNNAME, density),y = density,fill=density)) +
+  geom_bar( stat="identity", width = 0.5) +
+  labs(x="District", y="Bus Stops per Km2") +
+  coord_flip()
+
+
+```
+
+geom_bar vs. geom_col
+https://cmdlinetips.com/2019/10/barplots-with-ggplot2-in-r/
+

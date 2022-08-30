@@ -1,0 +1,182 @@
+---
+title: "R test"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(here) 
+library(kableExtra)
+```
+```{r}
+#read_csv(parse_character(here('data','A17000000J-020062-LKQ.csv'), locale = locale(encoding = "big5")))
+
+#df2017=read.csv(readLines(,"/home/ancientsky/r_git_testing/test/data/fetp/mol/A17000000J-020062-bAk.csv", warn = FALSE), fileEncoding = "big5")
+```
+https://stackoverflow.com/questions/11433432/how-to-import-multiple-csv-files-at-once
+
+
+
+```{r}
+#temp = list.files(pattern="*.csv")
+#myfiles = lapply(temp, read.delim)
+#readcsvbig5 <- function(fname) {
+#  read.csv(fname, fileEncoding = "big5")
+#}
+
+temp = list.files(here('data/fetp/mol'),pattern="*.csv", full.names = TRUE)
+#dfnum=0
+df = data.frame(county=character(),job=character(),medium=character(),injury=character(), date=character())
+for (i in temp) {
+  #dfnum = dfnum+1
+  #paste0("df_",dfnum))= read.csv(i, fileEncoding = "big5")
+  
+  df = rbind(df,read_csv(i))
+}
+#myfiles = lapply(temp, readcsvbig5)
+
+```
+```{r}
+colnames(df) = c('county','industry','medium','injury_type','injury_date','death','injuries')
+```
+```{r}
+df$injury_date
+#as.Date(df$injury_date, "%y-%m-%d")
+```
+```{r}
+#gsub("/","-",df$injury_date)
+
+df$injury_date = gsub("/","-",df$injury_date)
+df$injury_date = as.Date(df$injury_date, "%Y-%m-%d")
+```
+
+```{r}
+summary(df)
+```
+```{r}
+##remove na row
+df =df[!is.na(df$county),]
+```
+
+```{r}
+summary(df)
+```
+
+```{r}
+
+write.csv(df,'injuries.csv')
+```
+## Q1.請找出2013-2017高雄市前5大造成死亡的媒介物
+
+```{r}
+df %>%
+  filter(county=="高雄市") %>% 
+  group_by(medium) %>% 
+  summarise( counts = n()) %>% 
+  arrange(desc(counts)) %>% 
+  head(5)
+```
+
+請找出2013-2017各年前5大造成死亡的災害類型
+
+```{r}
+library(lubridate)
+top_5 <- data.frame(data.frame(matrix(NA, nrow = 5, ncol = 0)))
+for (i in 2013:2017) {
+df_tmp <- df %>% 
+  filter(year(injury_date)==i) %>% 
+  group_by(injury_type) %>% 
+  summarize(subtotal_deaths=n()) %>% 
+  arrange(desc(subtotal_deaths)) %>% 
+  head(5)
+colnames(df_tmp) = c(paste0("災害類型_",i),paste0("死亡人數_",i))
+top_5 = bind_cols(top_5,df_tmp)
+}
+```
+```{r}
+top_5
+```
+Beautify table with KableExtra
+https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html
+
+```{r}
+#install.packages("kableExtra")
+library(kableExtra)
+```
+```{r}
+top_5 %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+```
+##請找出2013-2017五年累計職業災害傷+死亡人數前5大縣市別
+
+```{r}
+##檢查縣市是否有重覆或可歸併者
+df %>% 
+  distinct(county)
+  
+
+```
+
+```{r}
+#歸併縣市
+df_merged <- df %>% 
+  mutate(county = str_replace(county, "桃園縣", "桃園市")) %>% 
+  mutate(county = str_replace(county,"中科","台中市")) %>% 
+  mutate(county = str_replace(county,"南科","台南市")) %>% 
+  mutate(county = str_replace(county,"竹科","新竹市")) 
+```
+```{r}
+df_merged %>% 
+  mutate(total = death + injuries) %>% 
+  group_by(county) %>%    ### grouping by county
+  summarise(county_overall=sum(total)) %>% 
+  arrange(desc(county_overall)) %>% 
+  head(5) %>% 
+  kbl() %>%      ### beautify
+  kable_material(c("striped", "hover"))
+```
+
+## 請畫出2013-2017年每月營造業因墜落、滾落死亡人數趨勢圖
+
+```{r}
+df_monthly <- df %>% 
+  filter(industry=="營造業" & injury_type=="墜落、滾落") %>% 
+  mutate(ym = floor_date(injury_date, "month")) %>% ### floor_date
+  group_by(ym) %>% 
+  summarise(monthly_death=sum(death))
+
+```
+```{r}
+df_monthly
+```
+
+```{r}
+ggplot(df_monthly,aes(x=ym, y=monthly_death)) +
+  geom_line() +
+  labs(x="Year-month", y="Monthly Deaths")
+```
+```{r}
+df_year_month <- df %>% 
+  filter(industry=="營造業" & injury_type=="墜落、滾落") %>% 
+  mutate(injury_year = year(injury_date)) %>%
+  mutate(injury_month = month(injury_date)) %>%
+  mutate(injury_month_abb = factor(month.abb[injury_month],levels=month.abb)) %>% 
+  group_by(injury_year, injury_month_abb) %>% 
+  summarise(monthly_death=sum(death))
+```
+```{r}
+df_year_month
+```
+```{r}
+monthlabs <- c("1", "2", "3", "4", "5","6","7","8","9","10","11","12")
+
+ggplot(df_year_month,aes(x=injury_month_abb, y=monthly_death)) +
+  geom_col() +
+  facet_wrap(~injury_year,ncol=3)+ 
+  #coord_cartesian()+
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x="Month", y="Monthly Deaths")
+```
+
