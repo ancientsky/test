@@ -160,6 +160,8 @@ df_3_sta <- df_sta %>%
 
 ggplot(data=df_3_sta, aes( x=trnOpDate, y=incoming)) +
   geom_line() +
-  facet_wrap(~stationName,ncol=3)
+  labs(x="Date",y="Incoming Passengers") +
+  facet_wrap(~stationName,ncol=3) 
+  
   
 ```
