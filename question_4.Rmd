@@ -1,0 +1,302 @@
+---
+title: "Question 4 全球COVID-19疫情"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+```{r}
+library(readxl)
+owid <- read_excel("data/owid-covid-data_20220822.xlsx")
+```
+```{r}
+summary(owid)
+```
+
+```{r}
+###convert 'date' to date format
+owid$date = as.Date(owid$date)
+```
+
+##請作表列出累積確診病例、累積死亡病例及粗致死率排名前十大國家
+
+
+```{r}
+
+owid %>% 
+  distinct(location)
+
+owid %>% 
+  distinct(iso_code)
+```
+```{r}
+
+## na.rm = True 計算前前移除na值避免無法計算
+
+country_ranking <- owid %>% 
+  filter(!grepl("OWID",iso_code)) %>% 
+  group_by(location) %>% 
+  summarize(cases=sum(new_cases,na.rm = TRUE),deaths=sum(new_deaths,na.rm = TRUE),CFR=round(max(new_deaths,na.rm = TRUE)/max(new_cases,na.rm = TRUE),3))
+
+country_ranking
+```
+```{r}
+country_cases <- country_ranking %>% 
+  select(location, cases) %>% 
+  arrange(desc(cases)) %>% 
+  head(10)
+country_cases
+```
+```{r}
+country_deaths <- country_ranking %>% 
+  select(location, deaths) %>% 
+  arrange(desc(deaths)) %>% 
+  head(10)
+country_deaths
+```
+```{r}
+country_cfr <- country_ranking %>% 
+  select(location, CFR) %>% 
+  arrange(desc(CFR)) %>% 
+  head(10)
+country_cfr
+```
+
+```{r}
+combined <- bind_cols(c(country_cases,country_deaths,country_cfr),.name_repair = "unique")
+combined %>% 
+  rename("Top10_Cases" = location...1, "Top10_Deaths"=location...3, "Top_10CFR"=location...5 ) %>% 
+  kable() %>% 
+  kable_material(c("striped", "hover"))
+```
+
+## 請畫出以色列與英國2020起，每日每百萬人口新增病例數、每日每百萬人口新增死亡數、每日累積完整疫苗施打率(people_fully_vaccinated_per_hundred) 趨勢圖 (以色列與英國分開)
+
+```{r}
+### filter "Israel, UK" and select columns
+Israel_UK <- owid %>% 
+  filter(location==c('Israel','United Kingdom')) %>% 
+  select(c(location, date, new_cases_smoothed_per_million, new_deaths_smoothed_per_million,people_fully_vaccinated_per_hundred ))
+
+Israel_UK
+```
+
+ggplot dual Y axis
+https://r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html
+
+```{r}
+coeff <- 100
+
+ggplot(data = Israel_UK, aes(x=date)) +
+  geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=people_fully_vaccinated_per_hundred*coeff), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff,  name="People Fully Vaccinated per Hundred", )
+  ) +
+  facet_wrap(~location,ncol=2, scales = "free_y") 
+
+```
+
+improved charts
+
+```{r}
+coeff1 <- 30
+
+
+## UK cases vs vaccinated
+case_UK <-  ( ggplot(data = filter(Israel_UK, location=="United Kingdom"), aes(x=date)) +
+  geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  #geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=people_fully_vaccinated_per_hundred*coeff1), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff1,  name="People Fully Vaccinated per Hundred", )
+  ) +
+  ggtitle("UK") )
+
+
+coeff2 <- 120
+
+case_Israel <-  ( ggplot(data = filter(Israel_UK, location=="Israel"), aes(x=date)) +
+  geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  #geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=people_fully_vaccinated_per_hundred*coeff2), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff2,  name="People Fully Vaccinated per Hundred", )
+  ) +
+  ggtitle("Israel") )
+
+case_Israel
+#case_all <- case_UK + case_Israel
+#case_all
+
+#put two charts side by side https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+#install.packages(cowplot)
+library(cowplot)
+cowplot::plot_grid(case_UK, case_Israel, labels = "AUTO")
+
+```
+
+
+```{r}
+coeff3 <- 1
+
+
+## UK cases vs vaccinated
+case_UK <-  ( ggplot(data = filter(Israel_UK, location=="United Kingdom"), aes(x=date)) +
+  #geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=people_fully_vaccinated_per_hundred*coeff3), color = "#5ab4ac") +
+  scale_y_continuous(
+    # Features of the first axis
+    name = "New Deaths Per Million",
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff3,  name="People Fully Vaccinated per Hundred", )
+  ) +
+  ggtitle("UK") )
+
+
+coeff4 <- 1
+
+case_Israel <-  ( ggplot(data = filter(Israel_UK, location=="Israel"), aes(x=date)) +
+  #geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=people_fully_vaccinated_per_hundred*coeff4), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Deaths Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coeff4,  name="People Fully Vaccinated per Hundred", )
+  ) +
+  ggtitle("Israel") )
+
+case_Israel
+#case_all <- case_UK + case_Israel
+#case_all
+
+#put two charts side by side https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+#install.packages(cowplot)
+library(cowplot)
+cowplot::plot_grid(case_UK, case_Israel, labels = "AUTO")
+
+```
+## 請畫出台灣與紐西蘭2020起，每日每百萬人口新增病例數、每日每百萬人口新增死亡數，防疫嚴格指數 (stringency_index)
+
+```{r}
+### filter "Taiwan", "New Zealand" and select columns
+TW_NZ <- owid %>% 
+  filter(location==c('Taiwan','New Zealand')) %>% 
+  select(c(location, date, new_cases_smoothed_per_million,stringency_index,new_deaths_smoothed_per_million ))
+
+TW_NZ
+```
+
+```{r}
+
+## TW cases vs Stringency Index
+coefft1 <- 36
+
+case_tw <-  ( ggplot(data = filter(TW_NZ, location=="Taiwan"), aes(x=date)) +
+  geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  #geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=stringency_index*coefft1), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft1,  name="Stringency Index", )
+  ) +
+  ggtitle("TW") )
+
+## NZ cases vs Stringency Index
+coefft2 <- 50
+
+case_nz <-  ( ggplot(data = filter(TW_NZ, location=="New Zealand"), aes(x=date)) +
+  geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  #geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=stringency_index*coefft2), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft2,  name="Stringency Index", )
+  ) +
+  ggtitle("NZ") )
+
+#case_all <- case_UK + case_Israel
+#case_all
+
+#put two charts side by side https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+#install.packages(cowplot)
+library(cowplot)
+cowplot::plot_grid(case_tw, case_nz, labels = "AUTO")
+
+```
+
+```{r}
+
+## TW deaths vs Stringency Index
+coefft3 <- 1
+
+case_tw <-  ( ggplot(data = filter(TW_NZ, location=="Taiwan"), aes(x=date)) +
+  #geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=stringency_index*coefft3), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Deaths Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft3,  name="Stringency Index", )
+  ) +
+  ggtitle("TW") )
+
+## NZ deaths vs Stringency Index
+coefft4 <- 1
+
+case_nz <-  ( ggplot(data = filter(TW_NZ, location=="New Zealand"), aes(x=date)) +
+  #geom_line(aes(y=new_cases_smoothed_per_million),color = "#d8b365") +
+  geom_line(aes(y=new_deaths_smoothed_per_million), color = "#ef8a62")+
+  geom_line(aes(y=stringency_index*coefft4), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "New Cases Per Million",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft4,  name="Stringency Index", )
+  ) +
+  ggtitle("NZ") )
+
+#case_all <- case_UK + case_Israel
+#case_all
+
+#put two charts side by side https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+#install.packages(cowplot)
+library(cowplot)
+cowplot::plot_grid(case_tw, case_nz, labels = "AUTO")
+
+```

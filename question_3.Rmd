@@ -94,6 +94,8 @@ birth_year_edu <- birth %>%
   summarize(births=sum(birth_count))
 birth_year_edu
 ```
+
+
 ```{r}
 ggplot(birth_year_edu, aes(x=statistic_yyy,y=births)) +
   geom_col() +
@@ -134,6 +136,15 @@ birth_110 <- birth %>%
   
 birth_110
 ```
+
+```{r}
+birth_110 %>% 
+  pivot_wider(names_from=city,values_from = births) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+
+
 ```{r}
 ggplot(birth_110, aes(x=mother_age,y=births)) +
   geom_col() +

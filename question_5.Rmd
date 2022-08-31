@@ -1,0 +1,165 @@
+---
+title: "Question 5 台鐵每日各站點進出站人數 "
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+```{r}
+### loading data
+
+df2020 <- read_csv("data/每日各站進出站人數2020.csv", 
+    col_types = cols(trnOpDate = col_datetime(format = "%Y%m%d") ))
+
+df2021 <- read_csv("data/每日各站進出站人數2021.csv", 
+    col_types = cols(trnOpDate = col_datetime(format = "%Y%m%d")))
+
+```
+json file
+
+```{r}
+#install.packages("jsonlite")
+library(jsonlite)
+df2022 <- fromJSON(readLines("./data/每日各站進出站人數-2022.json")) %>% as.data.frame
+```
+
+```{r}
+#names(df2022)
+#as.Date(df2022$trnOpDate,format ="%Y%m%d")
+df2022 <- df2022 %>% 
+  mutate(trnOpDate = as.Date(df2022$trnOpDate,format ="%Y%m%d"), staCode = as.numeric(staCode), gateInComingCnt = as.numeric(gateInComingCnt), gateOutGoingCnt = as.numeric(gateOutGoingCnt))
+
+```
+```{r}
+df_combined <- bind_rows(df2020, df2021, df2022)
+```
+
+load 車站基本資料
+```{r}
+stations <- fromJSON(readLines("./data/車站基本資料集.json")) %>% as.data.frame
+```
+```{r}
+### change station code to numeric to follow station code in df_combined
+stations <- stations %>% 
+  mutate(staCode=as.numeric(stationCode))
+```
+
+```{r}
+##merge station information into df_combined
+df_sta <- df_combined %>% 
+  left_join(stations,by=c("staCode"="staCode"))
+```
+
+## 畫出 2020 - 2022 年 每日全國總進站人數折線圖，觀查是否因COVID-19疫情受到影響
+
+
+```{r}
+df_nationwide <- df_sta %>% 
+  group_by(trnOpDate) %>% 
+  summarize(incoming = sum(gateInComingCnt))
+
+ggplot(data=df_nationwide, aes( x=trnOpDate, y=incoming)) +
+  geom_line()
+  
+```
+同場加映 7日移動平均
+```{r}
+#install.packages("zoo")  ##7日移動平均 library
+library(zoo)
+
+df_nationwide <- df_nationwide %>% 
+  mutate(incoming_7_day_mov_avg= rollmean(incoming, k = 7, fill = NA, align = "right"))
+
+ggplot(data=df_nationwide, aes( x=trnOpDate)) +
+  geom_line(aes(y=incoming), color="#af8dc3") +
+  geom_line(aes(y=incoming_7_day_mov_avg), color = "#7fbf7b")
+```
+7日移動平均smooth 後，會看不到2022/5/1勞動節大罷工，2022年5月疫情，民眾也有減少搭乘火車，但是比例2021年5月的下降幅度來得小
+
+## 加入owid的台灣 stringency_index 每日指數、每日確定病例數於上圖
+
+```{r}
+library(readxl)
+owid <- read_excel("data/owid-covid-data_20220822.xlsx")
+```
+
+```{r}
+### filter "Israel, UK" and select columns
+TW_data <- owid %>% 
+  filter(location==c('Taiwan')) %>% 
+  select(c(location, date, new_cases_smoothed,stringency_index)) %>%
+  mutate(date=as.Date(date)) %>% 
+  rename("owid_date"=date)
+
+```
+
+Combine COVID-19 data and train station incoming passengers
+```{r}
+tw_train_covid <- df_nationwide %>% 
+  mutate(trnOpDate=as.Date(trnOpDate)) %>% 
+  left_join(TW_data, by=c("trnOpDate"="owid_date"))
+```
+```{r}
+summary(tw_train_covid)
+```
+
+```{r}
+
+## Passengers vs Stringency Index
+coefft1 <- 10000
+
+train_stringency <-  ( ggplot(data = tw_train_covid, aes(x=trnOpDate)) +
+  geom_line(aes(y=incoming_7_day_mov_avg),color = "#d8b365") +
+  geom_line(aes(y=stringency_index*coefft1), color = "#ef8a62") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "Daily Incoming Passengers",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft1,  name="Stringency Index", )
+  ) +
+  ggtitle("Train Passengers vs. Stringency Index") )
+
+
+## Passengers vs New Cases 
+coefft2 <- 10
+
+train_cases <-  ( ggplot(data = tw_train_covid, aes(x=trnOpDate)) +
+  geom_line(aes(y=incoming_7_day_mov_avg),color = "#d8b365") +
+  geom_line(aes(y=new_cases_smoothed*coefft2), color = "#5ab4ac") +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "Daily Incoming Passengers",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~./coefft2,  name="Daily New Cases", )
+  ) +
+  ggtitle("Daily Train Passengers vs. New Cases") )
+
+
+#put two charts side by side https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+#install.packages(cowplot)
+library(cowplot)
+cowplot::plot_grid(train_stringency, train_cases, labels = "AUTO")
+
+
+```
+
+## 比較台北站、台中站、高雄站2020 - 2022年，每日進出站人數
+```{r}
+df_3_sta <- df_sta %>%
+  filter(stationName==c("臺北","臺中","高雄")) %>% 
+  group_by(trnOpDate,stationName) %>% 
+  mutate(trnOpDate=as.Date(trnOpDate)) %>% 
+  summarize(incoming = sum(gateInComingCnt))
+
+ggplot(data=df_3_sta, aes( x=trnOpDate, y=incoming)) +
+  geom_line() +
+  facet_wrap(~stationName,ncol=3)
+  
+```
