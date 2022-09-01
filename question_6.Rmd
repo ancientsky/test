@@ -1,0 +1,132 @@
+---
+title: "Question 6 2008-2020每年死因統計資料"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+
+## 請算出2008-2020年有多少人走了？
+
+```{r}
+death_cause <- read_csv("./data/annual_cause_death_2008_2020.csv")
+```
+將age(年齡層)轉為(factorial)有次序(levels)的變數
+
+```{r}
+## 將age(年齡層)轉為(factorial)有次序(levels)的變數
+death_cause %>% 
+  distinct(age)
+
+```
+```{r}
+unique(death_cause$age)
+```
+```{r}
+death_cause <- death_cause %>% 
+  mutate(age = factor(age,levels=c("0-9歲","10-19歲","20-29歲","30-39歲","40-49歲","50-59歲","60-69歲","70-79歲","80-89歲","90-99歲","100歲以上")))
+```
+```{r}
+death_cause %>% 
+  summarize(Total_Deaths=sum(N))
+```
+
+```{r}
+death_cause %>% 
+  group_by(year) %>% 
+  summarize(Total_Deaths=sum(N)) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+```{r}
+death_cause %>% 
+  group_by(year,gender) %>% 
+  summarize(Total_Deaths=sum(N)) %>% 
+  pivot_wider(names_from=gender,values_from = Total_Deaths) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+```{r}
+death_cause %>% 
+  group_by(age,gender) %>% 
+  summarize(Total_Deaths=sum(N)) %>% 
+  pivot_wider(names_from=gender,values_from = Total_Deaths) %>% 
+  kable() %>% 
+  kable_classic(full_width = F)
+```
+
+
+## 畫出2008-2020年男性與女性60歲以上每年死亡人數直條圖
+
+https://r-graph-gallery.com/48-grouped-barplot-with-ggplot2.html
+
+```{r}
+levels(death_cause$age)
+```
+
+```{r}
+death_over60 <- death_cause %>% 
+  filter(age==c("60-69歲","70-79歲","80-89歲","90-99歲","100歲以上")) %>% 
+  group_by(year,gender) %>% 
+  summarize(Deaths=sum(N))
+```
+```{r}
+death_over60
+```
+```{r}
+ggplot(data=death_over60, aes(x=year, y=Deaths, fill=gender)) +
+  geom_col(position="stack", width=0.5)
+```
+```{r}
+ggplot(data=death_over60, aes(x=year, y=Deaths, fill=gender)) +
+  geom_col(position="dodge")
+```
+```{r}
+ggplot(data=death_over60, aes(x=year, y=Deaths)) +
+  geom_col()+
+  facet_wrap(~gender,ncol=2)
+```
+
+## 畫出2008-2020年，每年死因為腫瘤(ICD10 C00-D48)佔所有死因百分比折線圖
+
+```{r}
+causes <- death_cause %>% 
+  distinct(`ICD-10`)   #### 用 ` 符號(Esc下方)來選"ICD-10"，因為 "-" 在 R裡面都是當成"減"，用一般的 ' " 單引號或雙引號會出問題
+cause_list <- as.list(causes)
+cause_list
+```
+```{r}
+cancer_list <- cause_list[[1]][6:33]
+cancer_list
+```
+
+
+
+
+```{r}
+death_malignancy <- death_cause %>% 
+  group_by(year) %>% 
+  summarize(all_deaths= sum(N), cancer_deaths= sum(N[`ICD-10` %in% cancer_list]), cancer_percent = cancer_deaths/all_deaths)
+
+death_malignancy
+```
+
+
+```{r}
+#Format the text of tick mark labels
+#Tick mark labels can be formatted to be viewed as percents, dollars or scientific notation. The package scales is required.
+#http://www.sthda.com/english/wiki/ggplot2-axis-ticks-a-guide-to-customize-tick-marks-and-labels
+
+#install.packages("scales")
+library(scales)
+
+
+ggplot(data=death_malignancy, aes(x=year,y=cancer_percent)) +
+  geom_line(color="red") +
+  scale_x_continuous( breaks= c(2008:2020)) +
+  scale_y_continuous(labels = percent,name="Percentage of deaths due to cancer", limits=c(0,0.3))
+```
+
